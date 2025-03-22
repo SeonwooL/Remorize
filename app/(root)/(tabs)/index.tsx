@@ -10,12 +10,11 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-      <Text>hello</Text>
-
+ 
+      <Text className="font-bold text-lg my-10">Welcome to Remorize</Text>
       <Link href="/home">Home</Link>
       <Link href="/explore">Explore</Link>
-      <Link href="/sign-in">Sign In</Link>
+      <Link href="/profile">Profile</Link>
       <Link href="/sign-in">Sign In</Link>
 
 
