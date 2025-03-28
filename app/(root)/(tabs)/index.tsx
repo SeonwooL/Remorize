@@ -1,5 +1,9 @@
 import { Link } from "expo-router";
 import { Linking, Text, View } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+
+
 
 export default function Index() {
   return (
@@ -19,5 +23,7 @@ export default function Index() {
 
 
     </View>
+
+    
   );
 }
