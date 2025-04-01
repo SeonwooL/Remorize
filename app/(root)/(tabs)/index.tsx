@@ -16,12 +16,7 @@ export default function Index() {
     >
  
       <Text className="font-bold text-lg my-10">Welcome to Remorize</Text>
-      <Link href="/home">Home</Link>
-      <Link href="/explore">Explore</Link>
-      <Link href="/profile">Profile</Link>
-      <Link href="/sign-in">Sign In</Link>
-
-
+ 
     </View>
 
     
