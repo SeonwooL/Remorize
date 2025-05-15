@@ -1,124 +1,102 @@
 import React, { useState } from "react";
-import { View, Text, Button, Image } from "react-native";
+import { View, Text, Button, Image, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-const GOOGLE_CLOUD_VISION_API_KEY = "AIzaSyCNAktvaBU7bx2x3T0sefPSAnbbFyAbpCg";
+const SERVER_URL = "http://192.168.2.81:8000/ocr";
 
 const Home = () => {
   const [image, setImage] = useState<string | null>(null);
-  const [text, setText] = useState("");
-
-  // 카메라 권한 요청
-  const requestCameraPermission = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      alert('카메라 접근 권한이 필요합니다.');
-      return false;
-    }
-    return true;
-  };
-
-  // 카메라로 사진 촬영
-  const takePhoto = async () => {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      await processImage(result.assets[0].uri);
-    }
-  };
+  const [message, setMessage] = useState("");
 
   // 갤러리에서 이미지 선택
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.5,
+        base64: true,
+      });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      await processImage(result.assets[0].uri);
+      console.log('Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedAsset = result.assets[0];
+        console.log('Selected image details:', {
+          uri: selectedAsset.uri,
+          width: selectedAsset.width,
+          height: selectedAsset.height,
+          hasBase64: !!selectedAsset.base64,
+        });
+
+        setImage(selectedAsset.uri);
+        
+        if (selectedAsset.base64) {
+          console.log('Base64 data available, length:', selectedAsset.base64.length);
+          await sendImage(selectedAsset.base64);
+        } else {
+          throw new Error('이미지 데이터를 가져올 수 없습니다.');
+        }
+      } else {
+        console.log('Image selection canceled or no assets');
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('오류', '이미지 선택 실패: ' + (error as Error).message);
+      setMessage('이미지 선택 실패: ' + (error as Error).message);
     }
   };
 
-  // OCR 실행
-  const processImage = async (imageUri: string) => {
-    setText("인식 중...");
+  // 이미지 전송
+  const sendImage = async (base64Data: string) => {
     try {
-      // 이미지를 base64로 변환
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result?.toString().split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      setMessage("이미지 전송 중...");
+      console.log('Starting image upload...');
+      console.log('Base64 data length:', base64Data.length);
 
-      // Google Cloud Vision API 호출
-      const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_CLOUD_VISION_API_KEY}`;
-      const visionApiRequest = {
-        requests: [
-          {
-            image: {
-              content: base64,
-            },
-            features: [
-              {
-                type: "TEXT_DETECTION",
-                maxResults: 1,
-              },
-            ],
-          },
-        ],
-      };
+      if (!base64Data) {
+        throw new Error('이미지 데이터가 없습니다.');
+      }
 
-      const apiResponse = await fetch(visionApiUrl, {
+      console.log('Sending to server...');
+      // 서버로 전송
+      const apiResponse = await fetch(SERVER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(visionApiRequest),
+        body: JSON.stringify({ image: base64Data }),
       });
 
+      console.log('Server response status:', apiResponse.status);
+      
       if (!apiResponse.ok) {
-        throw new Error(`API 요청 실패: ${apiResponse.status}`);
+        const errorText = await apiResponse.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`서버 응답 오류: ${apiResponse.status} - ${errorText}`);
       }
 
       const data = await apiResponse.json();
+      console.log('Server response:', data);
       
-      if (!data.responses || !data.responses[0]) {
-        throw new Error('API 응답 형식이 올바르지 않습니다.');
+      if (!data.success) {
+        throw new Error(data.error || '서버 응답 오류');
       }
 
-      const textAnnotations = data.responses[0].textAnnotations;
-      if (!textAnnotations || !textAnnotations[0]) {
-        setText("이미지에서 텍스트를 찾을 수 없습니다.");
-        return;
-      }
-
-      setText(textAnnotations[0].description);
-    } catch (err: unknown) {
-      const error = err as Error;
-      setText("OCR 실패: " + error.message);
-      console.error('OCR Error:', error);
+      setMessage(data.message);
+    } catch (error) {
+      console.error('Error sending image:', error);
+      Alert.alert('오류', '이미지 전송 실패: ' + (error as Error).message);
+      setMessage('이미지 전송 실패: ' + (error as Error).message);
     }
   };
 
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Button title="카메라로 촬영" onPress={takePhoto} />
       <Button title="갤러리에서 선택" onPress={pickImage} />
       {image && <Image source={{ uri: image }} style={{ width: 200, height: 200, margin: 10 }} />}
-      <Text style={{ padding: 10 }}>{text}</Text>
+      <Text style={{ padding: 10 }}>{message}</Text>
     </View>
   );
 };
