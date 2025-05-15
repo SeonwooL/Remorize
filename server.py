@@ -10,7 +10,7 @@ import pytesseract
 from PIL import Image
 import io
 
-# 로깅 설정
+# set logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -19,16 +19,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Image Server")
 
-# CORS 설정
+# set cors
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 개발 환경에서는 모든 origin 허용
+    allow_origins=["*"],  # allow all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 이미지 저장 디렉토리 생성
+# create upload directory
 UPLOAD_DIR = "uploaded_images"
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -51,7 +51,7 @@ async def process_image(request: ImageRequest):
     try:
         logger.debug("Received image request")
         
-        # base64 이미지 데이터 디코딩
+        # decode base64 image data
         try:
             image_data = base64.b64decode(request.image)
             logger.debug(f"Decoded image size: {len(image_data)} bytes")
@@ -59,7 +59,7 @@ async def process_image(request: ImageRequest):
             logger.error(f"Failed to decode base64 image: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid image data")
 
-        # 이미지 파일로 저장
+        # save image file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"image_{timestamp}.jpg"
         filepath = os.path.join(UPLOAD_DIR, filename)
@@ -68,25 +68,25 @@ async def process_image(request: ImageRequest):
             f.write(image_data)
         logger.debug(f"Image saved to: {filepath}")
 
-        # PIL Image 객체로 변환
+        # convert to PIL Image object
         image = Image.open(io.BytesIO(image_data))
         
-        # OCR 수행
+        # run ocr
         try:
             text = pytesseract.image_to_string(image, lang='eng')
             logger.debug(f"Extracted text: {text}")
             
-            # 텍스트가 비어있는지 확인
+            # check if the text is empty
             if not text.strip():
                 return ImageResponse(
                     success=True,
-                    message="이미지에서 텍스트를 찾을 수 없습니다.",
+                    message="cannot find text in the image",
                     filename=filename
                 )
             
             return ImageResponse(
                 success=True,
-                message=f"추출된 텍스트: {text.strip()}",
+                message=f"extracted text: {text.strip()}",
                 filename=filename
             )
             
@@ -106,10 +106,10 @@ async def process_image(request: ImageRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    # 서버 시작
+    # start server
     uvicorn.run(
         "server:app",
         host="0.0.0.0",
         port=8000,
-        reload=True  # 개발 환경에서 코드 변경 시 자동 재시작
+        reload=True  # restart server when code is changed
     ) 
