@@ -9,6 +9,9 @@ from datetime import datetime
 import pytesseract
 from PIL import Image
 import io
+import re
+import time
+import openai
 
 # set logging
 logging.basicConfig(
@@ -41,6 +44,10 @@ class ImageResponse(BaseModel):
     message: str
     error: str = None
     filename: str = None
+
+class MeaningRequest(BaseModel):
+    word: str
+    sentence: str
 
 @app.get("/")
 async def root():
@@ -94,7 +101,7 @@ async def process_image(request: ImageRequest):
             logger.error(f"OCR processing failed: {str(e)}")
             return ImageResponse(
                 success=False,
-                message="OCR 처리 중 오류가 발생했습니다.",
+                message="OCR processing failed",
                 error=str(e),
                 filename=filename
             )
@@ -104,6 +111,21 @@ async def process_image(request: ImageRequest):
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/meaning")
+async def get_meaning(req: MeaningRequest):
+    prompt = f"아래 문장에서 '{req.word}'의 뜻을 한국어로, 문맥에 맞게 설명해줘:\n문장: {req.sentence}"
+    try:
+        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        meaning = response.choices[0].message.content
+        return {"meaning": meaning}
+    except Exception as e:
+        logging.error(f"OpenAI API error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get meaning from OpenAI API")
 
 if __name__ == "__main__":
     # start server
