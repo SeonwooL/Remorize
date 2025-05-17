@@ -39,15 +39,15 @@ const Home = () => {
           console.log('Base64 data available, length:', selectedAsset.base64.length);
           await sendImage(selectedAsset.base64);
         } else {
-          throw new Error('이미지 데이터를 가져올 수 없습니다.');
+          throw new Error('no image data.');
         }
       } else {
         console.log('Image selection canceled or no assets');
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('오류', '이미지 선택 실패: ' + (error as Error).message);
-      setMessage('이미지 선택 실패: ' + (error as Error).message);
+      Alert.alert('error', 'image picking failed: ' + (error as Error).message);
+      setMessage('image picking failed: ' + (error as Error).message);
     }
   };
 
@@ -123,7 +123,7 @@ const Home = () => {
         setMeaning(data.meaning);
         setModalVisible(true);
       } catch (e) {
-        setMeaning('뜻을 가져오는 데 실패했습니다.');
+        setMeaning('failed to get meaning.');
         setModalVisible(true);
       }
     }
